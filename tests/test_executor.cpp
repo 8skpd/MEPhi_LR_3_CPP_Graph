@@ -354,6 +354,58 @@ TEST(exec_drop_empty_graph) {
     ASSERT(contains(r, "уже был пуст"));
 }
 
+TEST(exec_highlight_path) {
+    Env e;
+    e.run("ADD EDGE A B 1");
+    e.run("ADD EDGE B C 2");
+    e.run("ADD EDGE A C 10");
+    e.run("PATH DIJKSTRA A C");
+    const auto& h = e.executor.highlight();
+    ASSERT(h.has_path);
+    ASSERT(h.path.size() == 3);
+    ASSERT(h.is_path_vertex("B"));
+    ASSERT(h.is_path_edge("A", "B"));
+    ASSERT(h.is_path_edge("B", "A"));   // нормализация: направление не важно
+    ASSERT(!h.is_path_edge("A", "C"));
+}
+
+TEST(exec_highlight_mst) {
+    Env e;
+    e.run("ADD EDGE A B 1");
+    e.run("ADD EDGE B C 2");
+    e.run("ADD EDGE A C 10");
+    e.run("SPANNING KRUSKAL");
+    const auto& h = e.executor.highlight();
+    ASSERT(h.has_mst);
+    ASSERT(h.mst_a.size() == 2);
+    ASSERT(h.is_mst_edge("A", "B"));
+    ASSERT(h.is_mst_edge("B", "C"));
+    ASSERT(!h.is_mst_edge("A", "C"));   // дорогое ребро не в остове
+}
+
+TEST(exec_highlight_components) {
+    Env e;
+    e.run("ADD EDGE A B 1");
+    e.run("ADD VERTEX Z");
+    e.run("COMPONENTS");
+    const auto& h = e.executor.highlight();
+    ASSERT(h.has_components);
+    ASSERT(h.component_count == 2);
+    ASSERT(h.components.size() == 3);
+    ASSERT(h.components[0] == h.components[1]);
+    ASSERT(h.components[0] != h.components[2]);
+}
+
+TEST(exec_highlight_reset_on_new_graph) {
+    Env e;
+    e.run("ADD EDGE A B 1");
+    e.run("SPANNING KRUSKAL");
+    ASSERT(e.executor.highlight().has_mst);
+    e.run("DROP GRAPH");
+    ASSERT(!e.executor.highlight().has_mst);
+    ASSERT(!e.executor.highlight().has_path);
+}
+
 int main() {
     std::cout << "=== Сквозные тесты (парсер + исполнитель) ===\n" << std::endl;
 
@@ -399,6 +451,11 @@ int main() {
 
     RUN_TEST(exec_drop_graph);
     RUN_TEST(exec_drop_empty_graph);
+
+    RUN_TEST(exec_highlight_path);
+    RUN_TEST(exec_highlight_mst);
+    RUN_TEST(exec_highlight_components);
+    RUN_TEST(exec_highlight_reset_on_new_graph);
 
     std::cout << "\n=== Все сквозные тесты пройдены ===\n";
     return 0;

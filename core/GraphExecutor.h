@@ -14,6 +14,7 @@
 #include "algorithms/BellmanFord.h"
 #include "algorithms/Kruskal.h"
 #include "algorithms/Prim.h"
+#include "GraphHighlight.h"
 
 /*
 Исполнитель команд графового интерфейса.
@@ -54,6 +55,7 @@ private:
     Graph graph_;
     DynamicArray<BenchmarkResult> last_benchmark_;
     bool exit_requested_ = false;
+    GraphHighlight highlight_;
 
     // форматирование пути
     std::string format_path(const DynamicArray<size_t>& path) const {
@@ -74,6 +76,7 @@ private:
     // выполнение команд
 
     std::string exec_create() {
+        highlight_ = GraphHighlight();
         graph_ = Graph();
         last_benchmark_ = DynamicArray<BenchmarkResult>();
         return "Создан новый пустой граф";
@@ -145,6 +148,7 @@ private:
     }
 
     std::string exec_generate(const GenerateQuery& q) {
+        highlight_ = GraphHighlight();
         GraphGeneratorConfig cfg;
         cfg.vertices = q.vertices;
         cfg.edges = q.edges;
@@ -164,6 +168,8 @@ private:
     }
 
     std::string exec_path(const PathQuery& q) {
+        highlight_ = GraphHighlight();   // сброс перед каждым запуском
+
         if (graph_.vertex_count() == 0) return "Ошибка: граф пуст";
         if (!graph_.has_vertex(q.from)) {
             return "Ошибка: вершина '" + q.from + "' не найдена";
@@ -173,8 +179,8 @@ private:
         // DFS
         if (q.algorithm == "DFS") {
             const PathResult r = dfs(graph_, from_id);
+
             if (q.to.empty()) {
-                // Промежуточный результат: порядок обхода
                 std::ostringstream oss;
                 oss << "Алгоритм: DFS (поиск в глубину)\n";
                 oss << "Порядок обхода от '" << q.from << "':\n  ";
@@ -186,6 +192,7 @@ private:
                     << " из " << graph_.vertex_count();
                 return oss.str();
             }
+
             if (!graph_.has_vertex(q.to)) {
                 return "Ошибка: вершина '" + q.to + "' не найдена";
             }
@@ -194,6 +201,9 @@ private:
             if (!path.has_value()) {
                 return "Вершина '" + q.to + "' недостижима из '" + q.from + "'";
             }
+
+            set_path_highlight(path.value());
+
             std::ostringstream oss;
             oss << "Алгоритм: DFS (путь не гарантирует кратчайший)\n";
             oss << "Путь: " << format_path(path.value()) << "\n";
@@ -201,7 +211,7 @@ private:
             return oss.str();
         }
 
-        // BFS, DIJKSTRA, BELLMAN
+        // BFS / DIJKSTRA / BELLMAN
         PathResult r;
         try {
             if (q.algorithm == "BFS") {
@@ -216,17 +226,13 @@ private:
         }
 
         if (q.to.empty()) {
-            // Расстояния до всех вершин
             std::ostringstream oss;
             oss << "Алгоритм: " << q.algorithm << "\n";
             oss << "Расстояния от '" << q.from << "':\n";
             for (size_t i = 0; i < graph_.vertex_count(); ++i) {
                 oss << "  " << graph_.vertex_name(i) << ": ";
-                if (r.dist[i].has_value()) {
-                    oss << format_double(r.dist[i].value());
-                } else {
-                    oss << "недостижима";
-                }
+                if (r.dist[i].has_value()) oss << format_double(r.dist[i].value());
+                else oss << "недостижима";
                 oss << "\n";
             }
             oss << "Достижимо вершин: " << r.reached
@@ -242,6 +248,9 @@ private:
         if (!path.has_value()) {
             return "Вершина '" + q.to + "' недостижима из '" + q.from + "'";
         }
+
+        set_path_highlight(path.value());
+
         std::ostringstream oss;
         oss << "Алгоритм: " << q.algorithm << "\n";
         oss << "Путь: " << format_path(path.value()) << "\n";
@@ -250,17 +259,23 @@ private:
     }
 
     std::string exec_spanning(const SpanningQuery& q) {
+        highlight_ = GraphHighlight();
+
         if (graph_.vertex_count() == 0) return "Ошибка: граф пуст";
 
         MstResult r;
         try {
-            if (q.algorithm == "KRUSKAL") {
-                r = kruskal(graph_);
-            } else {
-                r = prim(graph_);
-            }
+            if (q.algorithm == "KRUSKAL") r = kruskal(graph_);
+            else                          r = prim(graph_);
         } catch (const GraphException& e) {
             return std::string("Ошибка: ") + e.what();
+        }
+
+        // подсветка остова — до проверки на пустой набор рёбер
+        highlight_.has_mst = true;
+        for (size_t i = 0; i < r.edges.size(); ++i) {
+            highlight_.add_mst_edge(graph_.vertex_name(r.edges[i].from),
+                                    graph_.vertex_name(r.edges[i].to));
         }
 
         std::ostringstream oss;
@@ -281,8 +296,17 @@ private:
     }
 
     std::string exec_components() {
+        highlight_ = GraphHighlight();
+
         if (graph_.vertex_count() == 0) return "Граф пуст";
         const auto comps = connected_components(graph_);
+
+        highlight_.has_components = true;
+        highlight_.component_count = comps.count;
+        for (size_t i = 0; i < comps.component.size(); ++i) {
+            highlight_.components.push_back(comps.component[i]);
+        }
+
         std::ostringstream oss;
         oss << "Компонент связности: " << comps.count << "\n";
         for (size_t c = 0; c < comps.count; ++c) {
@@ -410,6 +434,7 @@ private:
     }
 
     std::string exec_drop() {
+        highlight_ = GraphHighlight();
         const bool was_empty = (graph_.vertex_count() == 0);
         graph_ = Graph();
         last_benchmark_ = DynamicArray<BenchmarkResult>();
@@ -417,6 +442,15 @@ private:
             return "Граф уже был пуст";
         }
         return "Граф удалён";
+    }
+
+    // Заполнение подсветки найденным путём (по именам вершин)
+    void set_path_highlight(const DynamicArray<size_t>& pv) {
+        highlight_ = GraphHighlight();
+        highlight_.has_path = true;
+        for (size_t i = 0; i < pv.size(); ++i) {
+            highlight_.path.push_back(graph_.vertex_name(pv[i]));
+        }
     }
 
 public:
@@ -444,6 +478,7 @@ public:
         }, q);
     }
 
+    const GraphHighlight& highlight() const { return highlight_; }
     bool should_exit() const { return exit_requested_; }
     const Graph& graph() const { return graph_; }
 };
