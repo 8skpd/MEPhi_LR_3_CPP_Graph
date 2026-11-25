@@ -1,0 +1,12 @@
+CREATE GRAPH
+ADD EDGE Москва Тверь 170
+ADD EDGE Тверь Новгород 390
+ADD EDGE Москва Новгород 600
+ADD EDGE Новгород Псков 290
+PATH DIJKSTRA Москва Псков
+PATH BFS Москва Псков
+PATH BELLMAN Москва Псков
+PATH DFS Москва
+SPANNING KRUSKAL
+SPANNING PRIM
+COMPONENTS

@@ -1,0 +1,12 @@
+CREATE GRAPH
+ADD VERTEX Москва
+ADD VERTEX Тверь
+ADD VERTEX Новгород
+ADD VERTEX Псков
+ADD EDGE Москва Тверь 170
+ADD EDGE Тверь Новгород 390
+ADD EDGE Москва Новгород 600
+ADD EDGE Новгород Псков 290
+SHOW GRAPH
+SHOW VERTICES
+SHOW EDGES
