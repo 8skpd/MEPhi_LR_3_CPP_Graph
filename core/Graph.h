@@ -68,6 +68,50 @@ public:
         return id;
     }
 
+    // Удаление вершины по индексу.
+    // Все инцидентные рёбра удаляются, индексы последующих вершин сдвигаются.
+    // Сложность: O(V + E).
+    void remove_vertex(size_t id) {
+        if (id >= vertex_count_) {
+            throw IndexOutOfRange(__func__);
+        }
+
+        // Удаляем все рёбра, инцидентные вершине, из списков смежности других вершин
+        for (size_t v = 0; v < vertex_count_; ++v) {
+            if (v == id) continue;
+            DynamicArray<Edge>& nb = adjacency_list_[v];
+            for (size_t i = nb.size(); i > 0; --i) {
+                if (nb[i - 1].to == id) {
+                    nb.erase(i - 1);
+                }
+            }
+        }
+
+        // Сдвигаем индексы в рёбрах: все рёбра с to > id уменьшаются на 1
+        for (size_t v = 0; v < vertex_count_; ++v) {
+            if (v == id) continue;
+            DynamicArray<Edge>& nb = adjacency_list_[v];
+            for (size_t i = 0; i < nb.size(); ++i) {
+                if (nb[i].to > id) {
+                    nb[i].to -= 1;
+                }
+            }
+        }
+
+        // Удаляем имя вершины из реестра
+        vertex_names_.Remove(display_names_[id]);
+
+        // Удаляем вершину из массивов
+        adjacency_list_.erase(id);
+        display_names_.erase(id);
+        --vertex_count_;
+
+        // Обновляем реестр имён для вершин, чьи индексы сдвинулись
+        for (size_t v = id; v < vertex_count_; ++v) {
+            vertex_names_.Set(display_names_[v], v);
+        }
+    }
+
     std::string vertex_name(size_t id) const {
         if (id >= display_names_.size()) {
             throw IndexOutOfRange(__func__);
@@ -99,6 +143,36 @@ public:
         size_t from = vertex_id(from_name);
         size_t to = vertex_id(to_name);
         add_edge(from, to, weight);
+    }
+
+    // Удаление ребра между двумя вершинами.
+    // Если есть параллельные рёбра, удаляется первое найденное.
+    // Возвращает true, если ребро было найдено и удалено.
+    bool remove_edge(size_t from, size_t to) {
+        if (from >= vertex_count_ || to >= vertex_count_) {
+            throw IndexOutOfRange(__func__);
+        }
+
+        DynamicArray<Edge>& nb_from = adjacency_list_[from];
+        bool removed = false;
+        for (size_t i = 0; i < nb_from.size(); ++i) {
+            if (nb_from[i].to == to) {
+                nb_from.erase(i);
+                removed = true;
+                break;
+            }
+        }
+        if (!removed) return false;
+
+        // Симметричная запись (для петли это второй экземпляр в том же списке)
+        DynamicArray<Edge>& nb_to = adjacency_list_[to];
+        for (size_t i = 0; i < nb_to.size(); ++i) {
+            if (nb_to[i].to == from) {
+                nb_to.erase(i);
+                break;
+            }
+        }
+        return true;
     }
 
     const DynamicArray<Edge>& neighbors(size_t vertex) const {

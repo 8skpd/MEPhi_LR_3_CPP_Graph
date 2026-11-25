@@ -343,8 +343,11 @@ private:
             "Команды графового интерфейса:\n"
             "\n"
             "  CREATE GRAPH                         - создать пустой граф\n"
+            "  DROP GRAPH                           - удалить текущий граф\n"
             "  ADD VERTEX [имя]                     - добавить вершину\n"
             "  ADD EDGE <от> <до> <вес>             - добавить ребро\n"
+            "  REMOVE VERTEX <имя>                - удалить вершину и её рёбра\n"
+            "  REMOVE EDGE <от> <до>              - удалить ребро\n"
             "  SHOW GRAPH | VERTICES | EDGES        - просмотр данных\n"
             "\n"
             "  GENERATE <топология> <n> [m]\n"
@@ -381,11 +384,47 @@ private:
         return "Граф сохранён в '" + path + "'";
     }
 
+    std::string exec_remove_vertex(const RemoveVertexQuery& q) {
+        if (graph_.vertex_count() == 0) return "Ошибка: граф пуст";
+        if (!graph_.has_vertex(q.name)) {
+            return "Ошибка: вершина '" + q.name + "' не найдена";
+        }
+        const size_t id = graph_.vertex_id(q.name);
+        graph_.remove_vertex(id);
+        return "Удалена вершина '" + q.name + "'";
+    }
+
+    std::string exec_remove_edge(const RemoveEdgeQuery& q) {
+        if (!graph_.has_vertex(q.from)) {
+            return "Ошибка: вершина '" + q.from + "' не найдена";
+        }
+        if (!graph_.has_vertex(q.to)) {
+            return "Ошибка: вершина '" + q.to + "' не найдена";
+        }
+        const size_t from_id = graph_.vertex_id(q.from);
+        const size_t to_id = graph_.vertex_id(q.to);
+        if (graph_.remove_edge(from_id, to_id)) {
+            return "Удалено ребро '" + q.from + "' - '" + q.to + "'";
+        }
+        return "Ошибка: ребро '" + q.from + "' - '" + q.to + "' не найдено";
+    }
+
+    std::string exec_drop() {
+        const bool was_empty = (graph_.vertex_count() == 0);
+        graph_ = Graph();
+        last_benchmark_ = DynamicArray<BenchmarkResult>();
+        if (was_empty) {
+            return "Граф уже был пуст";
+        }
+        return "Граф удалён";
+    }
+
 public:
     // Выполнить команду, вернуть форматированный результат
     std::string execute(const GraphQuery& q) {
         return std::visit(Overload{
             [&](const CreateGraphQuery&)    { return exec_create(); },
+            [&](const DropGraphQuery&)        { return exec_drop(); },
             [&](const AddVertexQuery& aq)   { return exec_add_vertex(aq); },
             [&](const AddEdgeQuery& aq)     { return exec_add_edge(aq); },
             [&](const ShowGraphQuery&)      { return exec_show_graph(); },
@@ -399,6 +438,8 @@ public:
             [&](const ExportQuery& eq)      { return exec_export(eq); },
             [&](const HelpQuery&)           { return exec_help(); },
             [&](const ViewQuery& vq)          { return exec_view(vq); },
+            [&](const RemoveVertexQuery& rq)  { return exec_remove_vertex(rq); },
+            [&](const RemoveEdgeQuery& rq)    { return exec_remove_edge(rq); },
             [&](const ExitQuery&)           { exit_requested_ = true; return std::string("Выход..."); },
         }, q);
     }

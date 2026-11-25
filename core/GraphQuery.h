@@ -12,6 +12,8 @@
 
 struct CreateGraphQuery {};
 
+struct DropGraphQuery {};
+
 struct AddVertexQuery {
     std::string name;            // пустое имя -> автогенерация
 };
@@ -72,8 +74,20 @@ struct ViewQuery {
     std::string path;   // пустое -> открыть в браузере, иначе сохранить по пути
 };
 
+struct RemoveVertexQuery {
+    std::string name;
+};
+
+struct RemoveEdgeQuery {
+    std::string from;
+    std::string to;
+};
+
+
 using GraphQuery = std::variant<
-    CreateGraphQuery, AddVertexQuery, AddEdgeQuery,
+    CreateGraphQuery, DropGraphQuery, 
+    AddVertexQuery, AddEdgeQuery,
+    RemoveVertexQuery, RemoveEdgeQuery,
     ShowGraphQuery, ShowVerticesQuery, ShowEdgesQuery,
     GenerateQuery, PathQuery, SpanningQuery, ComponentsQuery,
     BenchmarkQuery, ExportQuery,

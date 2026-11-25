@@ -204,6 +204,19 @@ TEST(parse_error_trailing_garbage) {
     ASSERT(caught);
 }
 
+TEST(parse_drop_graph) {
+    GraphParser p;
+    const GraphQuery q = p.parse("DROP GRAPH");
+    ASSERT(std::holds_alternative<DropGraphQuery>(q));
+}
+
+TEST(parse_drop_error) {
+    GraphParser p;
+    bool caught = false;
+    try { (void)p.parse("DROP"); } catch (const GraphException&) { caught = true; }
+    ASSERT(caught);
+}
+
 int main() {
     std::cout << "=== Тесты парсера команд ===\n" << std::endl;
 
@@ -233,6 +246,8 @@ int main() {
     RUN_TEST(parse_error_bad_weight);
     RUN_TEST(parse_error_unknown_topology);
     RUN_TEST(parse_error_trailing_garbage);
+    RUN_TEST(parse_drop_graph);
+    RUN_TEST(parse_drop_error);
 
     std::cout << "\n=== Все тесты парсера пройдены ===\n";
     return 0;

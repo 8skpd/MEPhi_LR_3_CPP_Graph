@@ -160,6 +160,7 @@ private:
         if (first == "HELP")       { advance(); return HelpQuery{}; }
         if (first == "EXIT" || first == "QUIT") { advance(); return ExitQuery{}; }
         if (first == "CREATE")     { return parse_create(); }
+        if (first == "DROP")       { return parse_drop(); }
         if (first == "ADD")        { return parse_add(); }
         if (first == "SHOW")       { return parse_show(); }
         if (first == "GENERATE" || first == "GEN") { return parse_generate(); }
@@ -168,6 +169,7 @@ private:
         if (first == "COMPONENTS" || first == "COMP") { advance(); return ComponentsQuery{}; }
         if (first == "BENCHMARK" || first == "BENCH") { return parse_benchmark(); }
         if (first == "EXPORT")     { return parse_export(); }
+        if (first == "REMOVE" || first == "DELETE") { return parse_remove(); }
         if (first == "VIEW")       { return parse_view(); }
 
         throw GraphException("parse", "неизвестная команда '" + first + "' (HELP для списка)");
@@ -231,6 +233,13 @@ private:
         return q;
     }
 
+    // DROP GRAPH
+    GraphQuery parse_drop() {
+        expect_keyword("DROP");
+        expect_keyword("GRAPH");
+        return DropGraphQuery{};
+    }
+
     // PATH BFS|DFS|DIJKSTRA|BELLMAN from [to]
     GraphQuery parse_path() {
         expect_keyword("PATH");
@@ -275,6 +284,23 @@ private:
                 "неизвестный тип бенчмарка '" + q.type + "' (SHORTEST, MST, SUITE)");
         }
         return q;
+    }
+
+    // REMOVE VERTEX <имя> | REMOVE EDGE <от> <до>
+    GraphQuery parse_remove() {
+        advance();  // REMOVE или DELETE
+        if (match_keyword("VERTEX")) {
+            RemoveVertexQuery q;
+            q.name = expect_identifier();
+            return q;
+        }
+        if (match_keyword("EDGE")) {
+            RemoveEdgeQuery q;
+            q.from = expect_identifier();
+            q.to = expect_identifier();
+            return q;
+        }
+        throw GraphException("parse", "после REMOVE ожидалось VERTEX или EDGE");
     }
 
     // EXPORT CSV <path>

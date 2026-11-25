@@ -303,6 +303,57 @@ TEST(exec_full_scenario_manual_graph) {
     ASSERT(contains(e.run("COMPONENTS"), "Компонент связности: 1"));
 }
 
+TEST(exec_remove_vertex) {
+    Env e;
+    e.run("ADD EDGE A B 5");
+    e.run("ADD EDGE B C 3");
+    const std::string r = e.run("REMOVE VERTEX B");
+    ASSERT(contains(r, "Удалена вершина"));
+    ASSERT(e.executor.graph().vertex_count() == 2);
+    ASSERT(e.executor.graph().edge_count() == 0);  // оба ребра удалены
+}
+
+TEST(exec_remove_edge) {
+    Env e;
+    e.run("ADD EDGE A B 5");
+    e.run("ADD EDGE B C 3");
+    const std::string r = e.run("REMOVE EDGE A B");
+    ASSERT(contains(r, "Удалено ребро"));
+    ASSERT(e.executor.graph().edge_count() == 1);
+}
+
+TEST(exec_remove_vertex_not_found) {
+    Env e;
+    e.run("ADD VERTEX A");
+    const std::string r = e.run("REMOVE VERTEX Z");
+    ASSERT(contains(r, "не найдена"));
+}
+
+TEST(exec_remove_edge_not_found) {
+    Env e;
+    e.run("ADD EDGE A B 5");
+    const std::string r = e.run("REMOVE EDGE A C");
+    ASSERT(contains(r, "не найдена") || contains(r, "не найдено"));
+}
+
+TEST(exec_drop_graph) {
+    Env e;
+    e.run("ADD EDGE A B 5");
+    e.run("ADD EDGE B C 3");
+    ASSERT(e.executor.graph().vertex_count() == 3);
+
+    const std::string r = e.run("DROP GRAPH");
+    ASSERT(contains(r, "Граф удалён"));
+    ASSERT(e.executor.graph().vertex_count() == 0);
+    ASSERT(e.executor.graph().edge_count() == 0);
+}
+
+TEST(exec_drop_empty_graph) {
+    Env e;
+    const std::string r = e.run("DROP GRAPH");
+    ASSERT(contains(r, "уже был пуст"));
+}
+
 int main() {
     std::cout << "=== Сквозные тесты (парсер + исполнитель) ===\n" << std::endl;
 
@@ -340,6 +391,14 @@ int main() {
     RUN_TEST(exec_exit_sets_flag);
 
     RUN_TEST(exec_full_scenario_manual_graph);
+
+    RUN_TEST(exec_remove_vertex);
+    RUN_TEST(exec_remove_edge);
+    RUN_TEST(exec_remove_vertex_not_found);
+    RUN_TEST(exec_remove_edge_not_found);
+
+    RUN_TEST(exec_drop_graph);
+    RUN_TEST(exec_drop_empty_graph);
 
     std::cout << "\n=== Все сквозные тесты пройдены ===\n";
     return 0;
